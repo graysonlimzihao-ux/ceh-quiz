@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CEH V13 Practice</title>
+<script src="exam_data.js"></script>
+<style>
+:root {
+  --bg:#0a0e27; --card:#111428; --border:#1e2a5e;
+  --green:#00ff88; --blue:#00bfff; --red:#ff2255; --yellow:#ffd700;
+  --text:#dde3ff; --text2:#7a88bb;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{scroll-behavior:smooth;}
+body{font-family:'Courier New',monospace;background:var(--bg);color:var(--text);min-height:100vh;}
+
+.screen{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(10,14,39,0.97);padding:20px;overflow-y:auto;}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px 20px;width:100%;max-width:440px;text-align:center;}
+.logo{font-size:2.8rem;font-weight:900;letter-spacing:4px;background:linear-gradient(135deg,var(--blue),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.logo-sub{color:var(--text2);font-size:0.7rem;letter-spacing:3px;margin-bottom:24px;}
+
+.set-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;}
+.set-option{padding:12px 4px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.75rem;font-weight:bold;background:rgba(255,255,255,0.03);color:var(--text2);transition:all .15s;}
+.set-option.active{background:rgba(0,191,255,0.15);border-color:var(--blue);color:var(--blue);}
+
+.info-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;}
+.info-box{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:10px;}
+.info-box .iv{font-size:1.3rem;font-weight:bold;color:var(--blue);}
+.info-box .il{font-size:0.6rem;color:var(--text2);text-transform:uppercase;margin-top:2px;}
+
+.btn{width:100%;padding:14px;border:none;border-radius:8px;font-family:inherit;font-weight:bold;font-size:0.85rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:opacity .15s;}
+.btn:active{opacity:0.75;}
+.btn-green{background:var(--green);color:#000;}
+.btn-dim{background:rgba(255,255,255,0.07);color:var(--text);margin-top:10px;}
+.btn-blue{background:var(--blue);color:#000;}
+
+#mainLayout{display:none;flex-direction:column;padding:8px;gap:10px;padding-bottom:80px;}
+#mainLayout.active{display:flex;}
+
+.sticky-hd{position:sticky;top:0;z-index:100;background:var(--bg);padding:6px 0 4px;}
+.hud{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;}
+#timer{font-size:1.4rem;font-weight:bold;color:var(--green);letter-spacing:2px;min-width:90px;}
+#timer.warn{color:var(--yellow);}
+#timer.crit{color:var(--red);animation:blink .8s infinite;}
+@keyframes blink{50%{opacity:.3;}}
+.hud-stats{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+.hs{text-align:center;}
+.hs-v{font-size:0.9rem;font-weight:bold;}
+.hs-l{font-size:0.55rem;color:var(--text2);text-transform:uppercase;}
+.submit-sm{padding:8px 12px;border:none;border-radius:6px;background:var(--blue);color:#000;font-weight:bold;font-size:0.72rem;cursor:pointer;white-space:nowrap;font-family:inherit;}
+.prog-wrap{height:3px;background:var(--border);border-radius:2px;margin-top:6px;}
+#progressBar{height:100%;background:var(--green);border-radius:2px;width:0%;transition:width .3s;}
+
+.qmap-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-top:4px;}
+.qmap-title{font-size:0.58rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+#qMap{display:grid;grid-template-columns:repeat(13,1fr);gap:3px;}
+.map-item{aspect-ratio:1;border-radius:3px;background:rgba(255,255,255,0.05);border:1px solid var(--border);cursor:pointer;font-size:0.45rem;display:flex;align-items:center;justify-content:center;color:var(--text2);}
+.map-item.done{background:rgba(0,191,255,0.2);border-color:var(--blue);color:var(--blue);}
+.map-item.map-correct{background:rgba(0,255,136,0.25);border-color:var(--green);color:var(--green);}
+.map-item.map-wrong{background:rgba(255,34,85,0.25);border-color:var(--red);color:var(--red);}
+
+.question{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;scroll-margin-top:180px;}
+.q-num{color:var(--text2);font-size:0.7rem;margin-bottom:8px;}
+.q-text{font-size:0.95rem;line-height:1.65;margin-bottom:14px;}
+.options{display:flex;flex-direction:column;gap:8px;}
+.option{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.88rem;line-height:1.4;text-align:left;color:var(--text);}
+.option .lbl{min-width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:bold;flex-shrink:0;margin-top:1px;}
+.option.selected{background:rgba(0,191,255,0.12);border-color:var(--blue);}
+.option.selected .lbl{background:var(--blue);color:#000;}
+.option.correct{background:rgba(0,255,136,0.1);border-color:var(--green);}
+.option.correct .lbl{background:var(--green);color:#000;}
+.option.wrong{background:rgba(255,34,85,0.1);border-color:var(--red);}
+.option.wrong .lbl{background:var(--red);color:#fff;}
+.explanation{display:none;margin-top:12px;padding:12px 14px;background:rgba(0,255,136,0.05);border-left:3px solid var(--green);border-radius:0 6px 6px 0;font-size:0.82rem;line-height:1.6;color:var(--text2);}
+.explanation.show{display:block;}
+
+#endScreen .panel{max-width:360px;}
+.final-score{font-size:4rem;font-weight:900;margin:12px 0 6px;}
+.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0;}
+.rg-box{background:rgba(255,255,255,0.04);border-radius:8px;padding:10px;}
+.rg-v{font-size:1.2rem;font-weight:bold;}
+.rg-l{font-size:0.6rem;color:var(--text2);text-transform:uppercase;margin-top:2px;}
+</style>
+</head>
+<body>
+
+<div id="startScreen" class="screen">
+  <div class="panel">
+    <div class="logo">CEH</div>
+    <div class="logo-sub">V13 · PRACTICE EXAM</div>
+    <div class="info-row">
+      <div class="info-box"><div class="iv">4h</div><div class="il">Duration</div></div>
+      <div class="info-box"><div class="iv">70%</div><div class="il">Pass Mark</div></div>
+      <div class="info-box"><div class="iv">125</div><div class="il">Questions</div></div>
+    </div>
+    <div style="font-size:0.72rem;color:var(--text2);margin-bottom:18px;">每次从全部题库随机抽取 125 题</div>
+    <button class="btn btn-green" onclick="startExam()">▶ START EXAM</button>
+  </div>
+</div>
+
+<div id="mainLayout">
+  <div class="sticky-hd">
+    <div class="hud">
+      <div id="timer">04:00:00</div>
+      <div class="hud-stats">
+        <div class="hs"><div class="hs-v" id="answered">0</div><div class="hs-l">Done</div></div>
+        <div class="hs"><div class="hs-v" id="total">-</div><div class="hs-l">Total</div></div>
+        <div class="hs"><div class="hs-v" id="correct">-</div><div class="hs-l">✓</div></div>
+        <div class="hs"><div class="hs-v" id="score">-%</div><div class="hs-l">Score</div></div>
+      </div>
+      <button class="submit-sm" id="submitBtn">SUBMIT</button>
+    </div>
+    <div class="prog-wrap"><div id="progressBar"></div></div>
+    <div class="qmap-wrap">
+      <div class="qmap-title">Question Map — tap to jump</div>
+      <div id="qMap"></div>
+    </div>
+  </div>
+  <div id="questions"></div>
+</div>
+
+<div id="endScreen" class="screen" style="display:none;">
+  <div class="panel">
+    <div style="font-size:0.7rem;color:var(--text2);letter-spacing:2px;text-transform:uppercase;">Exam Result</div>
+    <div class="final-score" id="finalScore">0%</div>
+    <div id="resultVerdict" style="font-size:1rem;font-weight:bold;margin-bottom:4px;"></div>
+    <div id="resultDetails" style="color:var(--text2);font-size:0.82rem;margin-bottom:16px;"></div>
+    <div class="result-grid">
+      <div class="rg-box"><div class="rg-v" id="rCorrect">-</div><div class="rg-l">Correct</div></div>
+      <div class="rg-box"><div class="rg-v" id="rWrong">-</div><div class="rg-l">Wrong</div></div>
+      <div class="rg-box"><div class="rg-v" id="rSkip">-</div><div class="rg-l">Skipped</div></div>
+    </div>
+    <button class="btn btn-blue" onclick="doReview()">📋 REVIEW ANSWERS</button>
+    <button class="btn btn-dim" onclick="location.reload()">🔄 RESTART</button>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentSet = "1";
+let currentQuestions = [];
+let answers = {};
+let isChecked = false;
+let timeLeft = 4 * 60 * 60;
+let timerInterval = null;
+
+// ── Safe storage (works in Safari private mode) ───────────────────────────
+const mem = {};
+function saveProgress() { try { mem['p'] = JSON.stringify(answers); } catch(e){} }
+function loadProgress() { try { return JSON.parse(mem['p'] || 'null'); } catch(e){ return null; } }
+
+// ── Set selector ───────────────────────────────────────────────────────────
+document.querySelectorAll('.set-option').forEach(opt => {
+  opt.addEventListener('click', function() {
+    document.querySelectorAll('.set-option').forEach(o => o.classList.remove('active'));
+    this.classList.add('active');
+    currentSet = this.dataset.set;
+    document.getElementById('qcount').textContent = EXAM_DATA[currentSet]?.length || 0;
+  });
+});
+
+// ── Start ──────────────────────────────────────────────────────────────────
+function startExam() {
+  // Merge all sets into one pool
+  let pool = [];
+  Object.values(EXAM_DATA).forEach(set => pool = pool.concat(set));
+  if (pool.length === 0) { alert("No questions found!"); return; }
+
+  // Fisher-Yates shuffle
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  // Assign unique sequential IDs to avoid q number collisions across sets
+  currentQuestions = pool.slice(0, 125).map((q, i) => ({ ...q, _uid: i }));
+  timeLeft = 4 * 60 * 60;
+  answers = {};
+  isChecked = false;
+
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('mainLayout').style.display = 'flex';
+  document.getElementById('mainLayout').style.flexDirection = 'column';
+
+  renderQuestions();
+  updateStats();
+  startTimer();
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function renderQuestions() {
+  let qHtml = '', mapHtml = '';
+  currentQuestions.forEach((q, idx) => {
+    const uid = q._uid;
+    qHtml += `
+      <div class="question" id="q_${uid}">
+        <div class="q-num">Q${idx+1}</div>
+        <div class="q-text">${q.question}</div>
+        <div class="options">
+          ${q.options.map((opt, i) => {
+            const lbl = String.fromCharCode(65+i);
+            return `<div class="option${answers[uid]===lbl?' selected':''}" onclick="pick(${uid},'${lbl}')" data-qid="${uid}" data-ans="${lbl}">
+              <span class="lbl">${lbl}</span><span>${opt}</span>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="explanation" id="exp_${uid}">
+          <p style="color:var(--green);font-weight:bold;margin-bottom:6px;">✓ Correct Answer: ${q.correct}</p>
+          <p style="margin:0;color:var(--text2);">${q.explanation}</p>
+        </div>
+      </div>`;
+    mapHtml += `<div class="map-item${answers[uid]?' done':''}" id="map_${uid}" onclick="jumpTo(${uid})">${idx+1}</div>`;
+  });
+  document.getElementById('questions').innerHTML = qHtml;
+  document.getElementById('qMap').innerHTML = mapHtml;
+  document.getElementById('total').textContent = currentQuestions.length;
+}
+
+// ── Pick answer ────────────────────────────────────────────────────────────
+function pick(uid, lbl) {
+  if (isChecked) return;
+  answers[uid] = lbl;
+  saveProgress();
+  document.querySelectorAll(`[data-qid="${uid}"]`).forEach(el => {
+    el.classList.toggle('selected', el.dataset.ans === lbl);
+  });
+  const dot = document.getElementById(`map_${uid}`);
+  if (dot) { dot.classList.remove('map-correct','map-wrong'); dot.classList.add('done'); }
+  updateStats();
+}
+
+function jumpTo(uid) {
+  const el = document.getElementById(`q_${uid}`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────
+function updateStats() {
+  const total = currentQuestions.length;
+  const done  = Object.keys(answers).length;
+  document.getElementById('answered').textContent = done;
+  document.getElementById('progressBar').style.width = (done/total*100) + '%';
+  if (isChecked) {
+    let ok = 0;
+    currentQuestions.forEach(q => { if (answers[q._uid] === q.correct) ok++; });
+    document.getElementById('correct').textContent = ok;
+    document.getElementById('score').textContent = Math.round(ok/total*100) + '%';
+  }
+}
+
+// ── Timer ──────────────────────────────────────────────────────────────────
+function startTimer() {
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    updateTimerDisplay();
+    if (timeLeft <= 0) { clearInterval(timerInterval); submit(); }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const h = String(Math.floor(timeLeft/3600)).padStart(2,'0');
+  const m = String(Math.floor(timeLeft%3600/60)).padStart(2,'0');
+  const s = String(timeLeft%60).padStart(2,'0');
+  const el = document.getElementById('timer');
+  el.textContent = `${h}:${m}:${s}`;
+  el.className = timeLeft < 300 ? 'crit' : timeLeft < 900 ? 'warn' : '';
+}
+
+// ── Submit ─────────────────────────────────────────────────────────────────
+document.getElementById('submitBtn').onclick = () => {
+  const skipped = currentQuestions.length - Object.keys(answers).length;
+  const msg = skipped > 0 ? `${skipped} questions unanswered. Submit anyway?` : 'Submit exam?';
+  if (confirm(msg)) { clearInterval(timerInterval); submit(); }
+};
+
+function submit() {
+  isChecked = true;
+  let correct = 0;
+  currentQuestions.forEach(q => { if (answers[q._uid] === q.correct) correct++; });
+  const total  = currentQuestions.length;
+  const wrong  = Object.keys(answers).length - correct;
+  const skip   = total - Object.keys(answers).length;
+  const pct    = Math.round(correct/total*100);
+  const pass   = pct >= 70;
+
+  document.getElementById('finalScore').textContent = pct + '%';
+  document.getElementById('finalScore').style.color = pass ? 'var(--green)' : 'var(--red)';
+  document.getElementById('resultVerdict').textContent = pass ? '✅ PASSED' : '❌ FAILED';
+  document.getElementById('resultVerdict').style.color  = pass ? 'var(--green)' : 'var(--red)';
+  document.getElementById('resultDetails').textContent  = `${correct} correct out of ${total}`;
+  document.getElementById('rCorrect').textContent = correct;
+  document.getElementById('rWrong').textContent   = wrong;
+  document.getElementById('rSkip').textContent    = skip;
+  document.getElementById('endScreen').style.display = 'flex';
+  updateStats();
+}
+
+// ── Review ─────────────────────────────────────────────────────────────────
+function doReview() {
+  document.getElementById('endScreen').style.display = 'none';
+  currentQuestions.forEach(q => {
+    const uid = q._uid;
+    document.getElementById(`exp_${uid}`)?.classList.add('show');
+    document.querySelectorAll(`[data-qid="${uid}"]`).forEach(el => {
+      el.classList.remove('selected');
+      if (el.dataset.ans === q.correct) el.classList.add('correct');
+      else if (answers[uid] === el.dataset.ans) el.classList.add('wrong');
+    });
+    const dot = document.getElementById(`map_${uid}`);
+    if (dot) {
+      dot.classList.remove('done');
+      dot.classList.add(answers[uid] === q.correct ? 'map-correct' : 'map-wrong');
+    }
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
