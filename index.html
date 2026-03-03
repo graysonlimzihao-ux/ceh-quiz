@@ -89,13 +89,24 @@ body{font-family:'Courier New',monospace;background:var(--bg);color:var(--text);
   <div class="panel">
     <div class="logo">CEH</div>
     <div class="logo-sub">V13 · PRACTICE EXAM</div>
+    
     <div class="info-row">
       <div class="info-box"><div class="iv">4h</div><div class="il">Duration</div></div>
       <div class="info-box"><div class="iv">70%</div><div class="il">Pass Mark</div></div>
       <div class="info-box"><div class="iv">125</div><div class="il">Questions</div></div>
     </div>
-    <div style="font-size:0.72rem;color:var(--text2);margin-bottom:18px;">每次从全部题库随机抽取 125 题</div>
-    <button class="btn btn-green" onclick="startExam()">▶ START EXAM</button>
+
+    <p style="font-size: 0.75rem; color: var(--text2); margin-top: 20px; margin-bottom: 10px; text-transform: uppercase;">Select Practice Mode</p>
+    <div class="set-grid">
+      <button class="set-option active" data-set="1">SET 1</button>
+      <button class="set-option" data-set="2">SET 2</button>
+      <button class="set-option" data-set="3">SET 3</button>
+      <button class="set-option" data-set="4">SET 4</button>
+    </div>
+    
+    <button class="btn btn-blue" onclick="startExam('set')" style="margin-bottom: 12px;">▶ START SELECTED SET</button>
+    <div style="border-top: 1px solid var(--border); margin: 15px 0;"></div>
+    <button class="btn btn-green" onclick="startExam('random')">🔀 RANDOM 125</button>
   </div>
 </div>
 
@@ -137,7 +148,7 @@ body{font-family:'Courier New',monospace;background:var(--bg);color:var(--text);
 </div>
 
 <script>
-// ── State ──────────────────────────────────────────────────────────────────
+// ── State (完全在内存中运行，适配手机各种浏览器环境) ────────────────────────
 let currentSet = "1";
 let currentQuestions = [];
 let answers = {};
@@ -145,37 +156,45 @@ let isChecked = false;
 let timeLeft = 4 * 60 * 60;
 let timerInterval = null;
 
-// ── Safe storage (works in Safari private mode) ───────────────────────────
-const mem = {};
-function saveProgress() { try { mem['p'] = JSON.stringify(answers); } catch(e){} }
-function loadProgress() { try { return JSON.parse(mem['p'] || 'null'); } catch(e){ return null; } }
-
-// ── Set selector ───────────────────────────────────────────────────────────
+// ── Set selector UI ────────────────────────────────────────────────────────
 document.querySelectorAll('.set-option').forEach(opt => {
   opt.addEventListener('click', function() {
     document.querySelectorAll('.set-option').forEach(o => o.classList.remove('active'));
     this.classList.add('active');
     currentSet = this.dataset.set;
-    document.getElementById('qcount').textContent = EXAM_DATA[currentSet]?.length || 0;
   });
 });
 
-// ── Start ──────────────────────────────────────────────────────────────────
-function startExam() {
-  // Merge all sets into one pool
-  let pool = [];
-  Object.values(EXAM_DATA).forEach(set => pool = pool.concat(set));
-  if (pool.length === 0) { alert("No questions found!"); return; }
+// ── Start Exam ─────────────────────────────────────────────────────────────
+function startExam(mode) {
+  if (mode === 'random') {
+    // 随机模式：混合所有题库并打乱
+    let pool = [];
+    Object.keys(EXAM_DATA).forEach(key => {
+      pool = pool.concat(EXAM_DATA[key]);
+    });
+    
+    if (pool.length === 0) { alert("No questions found!"); return; }
 
-  // Fisher-Yates shuffle
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
+    // Fisher-Yates shuffle 打乱算法
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    // 取前 125 题，分配独立 ID
+    currentQuestions = pool.slice(0, 125).map((q, i) => ({ ...q, _uid: 'r_' + i }));
+  } else {
+    // 指定 Set 模式
+    if (!EXAM_DATA[currentSet] || EXAM_DATA[currentSet].length === 0) {
+      alert("This set is currently empty."); return;
+    }
+    // 添加独立 ID，以便渲染时不会重复冲突
+    currentQuestions = EXAM_DATA[currentSet].map((q, i) => ({ ...q, _uid: 's_' + currentSet + '_' + i }));
   }
-  // Assign unique sequential IDs to avoid q number collisions across sets
-  currentQuestions = pool.slice(0, 125).map((q, i) => ({ ...q, _uid: i }));
-  timeLeft = 4 * 60 * 60;
+
+  // 每次考试重新初始化内存数据
   answers = {};
+  timeLeft = 4 * 60 * 60;
   isChecked = false;
 
   document.getElementById('startScreen').style.display = 'none';
@@ -187,7 +206,7 @@ function startExam() {
   startTimer();
 }
 
-// ── Render ─────────────────────────────────────────────────────────────────
+// ── Render Questions ───────────────────────────────────────────────────────
 function renderQuestions() {
   let qHtml = '', mapHtml = '';
   currentQuestions.forEach((q, idx) => {
@@ -199,7 +218,7 @@ function renderQuestions() {
         <div class="options">
           ${q.options.map((opt, i) => {
             const lbl = String.fromCharCode(65+i);
-            return `<div class="option${answers[uid]===lbl?' selected':''}" onclick="pick(${uid},'${lbl}')" data-qid="${uid}" data-ans="${lbl}">
+            return `<div class="option" onclick="pick('${uid}','${lbl}')" data-qid="${uid}" data-ans="${lbl}">
               <span class="lbl">${lbl}</span><span>${opt}</span>
             </div>`;
           }).join('')}
@@ -209,37 +228,45 @@ function renderQuestions() {
           <p style="margin:0;color:var(--text2);">${q.explanation}</p>
         </div>
       </div>`;
-    mapHtml += `<div class="map-item${answers[uid]?' done':''}" id="map_${uid}" onclick="jumpTo(${uid})">${idx+1}</div>`;
+    mapHtml += `<div class="map-item" id="map_${uid}" onclick="jumpTo('${uid}')">${idx+1}</div>`;
   });
   document.getElementById('questions').innerHTML = qHtml;
   document.getElementById('qMap').innerHTML = mapHtml;
   document.getElementById('total').textContent = currentQuestions.length;
 }
 
-// ── Pick answer ────────────────────────────────────────────────────────────
+// ── Answer Logic ───────────────────────────────────────────────────────────
 function pick(uid, lbl) {
   if (isChecked) return;
   answers[uid] = lbl;
-  saveProgress();
+  
+  // 更新选项 UI
   document.querySelectorAll(`[data-qid="${uid}"]`).forEach(el => {
     el.classList.toggle('selected', el.dataset.ans === lbl);
   });
+  
+  // 更新顶部导航点状态
   const dot = document.getElementById(`map_${uid}`);
-  if (dot) { dot.classList.remove('map-correct','map-wrong'); dot.classList.add('done'); }
+  if (dot) {
+    dot.classList.add('done');
+  }
+  
   updateStats();
 }
 
+// ── Scroll to Question ─────────────────────────────────────────────────────
 function jumpTo(uid) {
   const el = document.getElementById(`q_${uid}`);
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// ── Stats ──────────────────────────────────────────────────────────────────
+// ── Update Stats ───────────────────────────────────────────────────────────
 function updateStats() {
   const total = currentQuestions.length;
   const done  = Object.keys(answers).length;
   document.getElementById('answered').textContent = done;
   document.getElementById('progressBar').style.width = (done/total*100) + '%';
+  
   if (isChecked) {
     let ok = 0;
     currentQuestions.forEach(q => { if (answers[q._uid] === q.correct) ok++; });
@@ -248,9 +275,10 @@ function updateStats() {
   }
 }
 
-// ── Timer ──────────────────────────────────────────────────────────────────
+// ── Timer Logic ────────────────────────────────────────────────────────────
 function startTimer() {
   updateTimerDisplay();
+  if(timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     timeLeft--;
     updateTimerDisplay();
@@ -267,7 +295,7 @@ function updateTimerDisplay() {
   el.className = timeLeft < 300 ? 'crit' : timeLeft < 900 ? 'warn' : '';
 }
 
-// ── Submit ─────────────────────────────────────────────────────────────────
+// ── Submit Exam ────────────────────────────────────────────────────────────
 document.getElementById('submitBtn').onclick = () => {
   const skipped = currentQuestions.length - Object.keys(answers).length;
   const msg = skipped > 0 ? `${skipped} questions unanswered. Submit anyway?` : 'Submit exam?';
@@ -289,28 +317,43 @@ function submit() {
   document.getElementById('resultVerdict').textContent = pass ? '✅ PASSED' : '❌ FAILED';
   document.getElementById('resultVerdict').style.color  = pass ? 'var(--green)' : 'var(--red)';
   document.getElementById('resultDetails').textContent  = `${correct} correct out of ${total}`;
+  
   document.getElementById('rCorrect').textContent = correct;
   document.getElementById('rWrong').textContent   = wrong;
   document.getElementById('rSkip').textContent    = skip;
+  
   document.getElementById('endScreen').style.display = 'flex';
   updateStats();
 }
 
-// ── Review ─────────────────────────────────────────────────────────────────
+// ── Review Answers ─────────────────────────────────────────────────────────
 function doReview() {
   document.getElementById('endScreen').style.display = 'none';
+  
   currentQuestions.forEach(q => {
     const uid = q._uid;
+    const isCorrect = answers[uid] === q.correct;
+    
+    // 显示解析
     document.getElementById(`exp_${uid}`)?.classList.add('show');
+    
+    // 渲染题目选项红绿颜色
     document.querySelectorAll(`[data-qid="${uid}"]`).forEach(el => {
       el.classList.remove('selected');
-      if (el.dataset.ans === q.correct) el.classList.add('correct');
-      else if (answers[uid] === el.dataset.ans) el.classList.add('wrong');
+      if (el.dataset.ans === q.correct) {
+        el.classList.add('correct'); // 正确选项标记为绿
+      } else if (answers[uid] === el.dataset.ans) {
+        el.classList.add('wrong'); // 用户选错的标记为红
+      }
     });
+    
+    // 渲染地图网格红绿颜色
     const dot = document.getElementById(`map_${uid}`);
     if (dot) {
       dot.classList.remove('done');
-      dot.classList.add(answers[uid] === q.correct ? 'map-correct' : 'map-wrong');
+      if (answers[uid]) {
+         dot.classList.add(isCorrect ? 'map-correct' : 'map-wrong');
+      }
     }
   });
   window.scrollTo({ top: 0, behavior: 'smooth' });
