@@ -106,7 +106,7 @@ body{font-family:'Courier New',monospace;background:var(--bg);color:var(--text);
     
     <button class="btn btn-blue" onclick="startExam('set')" style="margin-bottom: 12px;">▶ START SELECTED SET</button>
     <div style="border-top: 1px solid var(--border); margin: 15px 0;"></div>
-    <button class="btn btn-green" onclick="startExam('random')">🔀 RANDOM 125</button>
+    <button class="btn btn-green" onclick="startExam('random')">🔀 RANDOM (QUESTIONS & OPTIONS)</button>
   </div>
 </div>
 
@@ -149,6 +149,8 @@ body{font-family:'Courier New',monospace;background:var(--bg);color:var(--text);
 
 <script>
 // ── State (完全在内存中运行，适配手机各种浏览器环境) ────────────────────────
+const indexToLabel = ['A', 'B', 'C', 'D'];
+const labelToIndex = {'A': 0, 'B': 1, 'C': 2, 'D': 3};
 let currentSet = "1";
 let currentQuestions = [];
 let answers = {};
@@ -165,30 +167,52 @@ document.querySelectorAll('.set-option').forEach(opt => {
   });
 });
 
+// ── Shuffle Helper (Fisher-Yates 算法) ────────────────────────────────────
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
 // ── Start Exam ─────────────────────────────────────────────────────────────
 function startExam(mode) {
   if (mode === 'random') {
-    // 随机模式：混合所有题库并打乱
+    // 随机模式：混合所有题库
     let pool = [];
-    Object.keys(EXAM_DATA).forEach(key => {
-      pool = pool.concat(EXAM_DATA[key]);
-    });
-    
+    Object.keys(EXAM_DATA).forEach(key => pool = pool.concat(EXAM_DATA[key]));
     if (pool.length === 0) { alert("No questions found!"); return; }
 
-    // Fisher-Yates shuffle 打乱算法
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-    // 取前 125 题，分配独立 ID
-    currentQuestions = pool.slice(0, 125).map((q, i) => ({ ...q, _uid: 'r_' + i }));
+    // 1. 打乱题目并抽取 125 题
+    const shuffledPool = shuffleArray([...pool]); // 浅拷贝一份，避免打乱原始池子
+    const selectedQuestions = shuffledPool.slice(0, 125);
+
+    // 2. 核心修改：对每一道选出的题目进行重映射（打乱选项并修正正确答案标签）
+    currentQuestions = selectedQuestions.map((q, i) => {
+      // 深拷贝题目数据（JSON 方法最快），确保修改不影响全局数据
+      const newQ = JSON.parse(JSON.stringify(q));
+      newQ._uid = 'r_' + i; // 分配独立 ID
+
+      const originalOptionsText = [...newQ.options];
+      const correctText = originalOptionsText[labelToIndex[newQ.correct]]; // 获取原始正确选项的文本
+
+      // 3. 打乱选项文本
+      newQ.options = shuffleArray(newQ.options);
+
+      // 4. 重映射：在新顺序中寻找原始正确文本的新索引
+      const newCorrectIndex = newQ.options.indexOf(correctText);
+      newQ.correct = indexToLabel[newCorrectIndex]; // 自动更新 q.correct 标签
+
+      return newQ;
+    });
+
   } else {
-    // 指定 Set 模式
+    // 指定 Set 模式（保持题目和选项顺序固定）
     if (!EXAM_DATA[currentSet] || EXAM_DATA[currentSet].length === 0) {
       alert("This set is currently empty."); return;
     }
-    // 添加独立 ID，以便渲染时不会重复冲突
+    // 添加独立 ID，但不打乱数据
     currentQuestions = EXAM_DATA[currentSet].map((q, i) => ({ ...q, _uid: 's_' + currentSet + '_' + i }));
   }
 
